@@ -1,6 +1,6 @@
 /.ipynb_checkpoints
 /__pycache__
-*.html
+^index.html
 /node_modules
 package-lock.json
 package.json

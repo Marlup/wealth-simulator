@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>💼 Wealth Simulator</title>
+  <script src="https://cdn.plot.ly/plotly-3.0.1.min.js" charset="utf-8"></script>
+  <!-- BokehJS + External Plot Logic -->
+  <script src="https://cdn.bokeh.org/bokeh/release/bokeh-3.3.2.min.js"></script>
+  <script type="module" src="main.js"></script>
+  <script type="module" src="download.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  
+  <!-- Favicon and Manifest -->
+  <link rel="icon" type="image/png" sizes="96x96" href="static/images/favicon-96x96.png">
+  <link rel="icon" type="image/svg+xml" href="static/images/favicon.svg">
+  <link rel="icon" href="static/images/favicon.ico">
+  <link rel="manifest" href="static/images/site.webmanifest">
+  <link rel="apple-touch-icon" sizes="180x180" href="static/images/apple-touch-icon.png">
+  
+  <!-- Fonts and Styles -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+  <style>
+    body, html {
+      height: 100%; 
+      margin: 0; 
+      padding: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: #f5f7fa; 
+      display: flex; 
+      flex-direction: column;
+    }
+
+    #page-wrapper {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: linear-gradient(to right, #3f51b5, #2196f3);
+      color: white; text-align: center; padding: 10px 10px;
+      box-shadow: 0 8px 12px rgba(0,0,0,0.2);
+    }
+
+    header h1 {
+      margin: 0; 
+      font-size: 2.2em; 
+      letter-spacing: 1px;
+    }
+
+    .subtitle {
+      margin-top: 5px;
+      font-size: 1em;
+      font-weight: 200;
+      opacity: 0.9;
+      height: 10px;
+    }
+
+    main {
+      flex: 1;
+      padding-bottom: 0rem;
+      overflow-x: hidden;
+    }
+
+    footer {
+      background-color: #1f2937;
+      color: white;
+      padding-top: 1rem;
+      text-align: center;
+      font-size: 12px;
+    }
+
+    .disclaimer {
+      font-size: 12px; color: #f3ebeb; margin-top: 5px; padding: 2px;
+      border-top: 1px solid #f5f0f0; text-align: center; line-height: 1.0;
+    }
+
+    #visualization {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+      padding: 10px;
+      box-sizing: border-box;
+      flex-wrap: wrap;
+    }
+
+    #controls label {
+      min-width: 250px;
+      display: block;
+      background-color: rgb(216, 210, 210);
+    }
+
+    #plots {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      flex-grow: 1;
+      min-width: 0;
+    }
+
+    #plot_earnings, #plot_combined {
+      flex: 1;
+      min-width: 300px;
+      min-height: 300px;
+    }
+
+      input[type="range"] {
+      width: 100%;
+      height: 8px;
+      border-radius: 5px;
+      background: linear-gradient(to right, #2196f3, #3f51b5);
+      outline: none;
+      transition: background 0.3s ease;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #fff;
+      border: 2px solid #3f51b5;
+      cursor: pointer;
+      transition: background 0.3s ease;
+      box-shadow: 0 0 3px rgba(0, 0, 0, 0.2);
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #fff;
+      border: 2px solid #3f51b5;
+      cursor: pointer;
+    }
+
+    .download-section{
+      display: flex;
+      justify-content: center; /* ⬅ centers items horizontally */
+      gap: 10px;                /* ⬅ spacing between items (optional) */
+      margin-bottom: 20px;
+      width: 100%;
+    }
+
+    .centered-row {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 10px;
+    }
+
+    .tooltip-label {
+      position: relative;
+      display: inline-block;
+      cursor: help;
+    }
+
+    .tooltip-label .tooltip-text {
+      visibility: hidden;
+      background-color: #333;
+      color: #fff;
+      text-align: left;
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 0.85em;
+      white-space: nowrap;
+      position: absolute;
+      z-index: 10;
+      bottom: 100%;
+      left: 0;
+      opacity: 0;
+      transform: translateX(265px);
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+
+    .tooltip-label:hover .tooltip-text {
+      visibility: visible;
+      opacity: 1;
+      transform: translate3d(265px, 30px, 0);
+    }
+
+  </style>
+</head>
+
+<body class="bg-light" style="margin-left: 15px; margin-right: 15px;">
+  <main>
+    <div class="container" id="page-wrapper">
+      <header>
+        <h1>💼 Wealth Simulator</h1>
+        <p class="subtitle">Explore earnings, taxes, and net worth with visual insight</p>
+      </header>
+      
+      <h3 style="justify-content: center; text-align: center">Visualization</h3>
+      <div id="visualization">
+        <div id="controls">
+
+          <label class="tooltip-label">
+            Initial Amount <span id="val_principal">10000</span> €
+            <span class="tooltip-text">Initial amount of money invested.</span><br>
+            <input type="range" id="principal" min="0" max="100000" step="1000" value="12000">
+          </label>
+          
+          <label class="tooltip-label">
+            Annual ROI <span id="val_roi">0.05</span>
+            <span class="tooltip-text">Expected return on investment per year.</span><br>
+            <input type="range" id="roi" min="0" max="1.0" step="0.005" value="0.09">
+          </label>
+          
+          <label class="tooltip-label">
+            Investment Duration <span id="val_duration">40</span> years
+            <span class="tooltip-text">How many years you’ll keep investing.</span><br>
+            <input type="range" id="duration" min="1" max="120" step="1" value="60">
+          </label>
+          
+          <label class="tooltip-label">
+            Payment Frequency <span id="val_frequency">12</span> months
+            <span class="tooltip-text">How often contributions or interest are added.</span><br>
+            <input type="range" id="frequency" min="1" max="12" step="1" value="6">
+          </label>
+          
+          <label class="tooltip-label">
+            Contribution <span id="val_contribution">1200</span> €/year
+            <span class="tooltip-text">Amount added to investment yearly.</span><br>
+            <input type="range" id="contribution" min="0" max="20000" step="100" value="2400">
+          </label>
+          
+          <label class="tooltip-label">
+            Increment Contribution Rate<br><span id="val_inc_contribution">0.01</span>
+            <span class="tooltip-text">Annual percentage increase in contributions.</span><br>
+            <input type="range" id="inc_contribution" min="0" max="0.2" step="0.005" value="0.01">
+          </label>
+          
+          <label class="tooltip-label">
+            Inflation Rate <span id="val_inflation">0.02</span>
+            <span class="tooltip-text">Expected rate of inflation per year.</span><br>
+            <input type="range" id="inflation" min="0" max="0.2" step="0.005" value="0.025">
+          </label>
+          
+          <label class="tooltip-label">
+            Retirement outflow<br><span id="val_retirement_income">500</span> (€/month)
+            <span class="tooltip-text">Income drawn per month after retirement.</span><br>
+            <input type="range" id="retirement_income" min="0" max="12000" step="100" value="1200">
+          </label>
+          
+          <label class="tooltip-label">
+            Retirement at <span id="val_retirement_at">30</span> years
+            <span class="tooltip-text">Age (in years) when you stop investing.</span><br>
+            <input type="range" id="retirement_at" min="0" max="60" step="1" value="30">
+          </label>
+          
+          <label class="tooltip-label">
+            Tax Rate (country): <span id="val_tax_rate">0.20</span>
+            <span class="tooltip-text">Fixed percentage of your gains paid in tax.</span><br>
+            <input type="range" id="tax_rate" min="0" max="0.6" step="0.01" value="0.20">
+          </label>        
+        </div>
+        
+        <div id="plots">
+          <div id="plot_combined" style="width: 100%; height: 350px;"></div>
+          <div id="plot_earnings" style="width: 100%; height: 350px;"></div>
+        </div>
+      </div>
+    
+    <h2 style="justify-content: center; text-align: center">📥 Download the data</h3>
+    <div class="download-section">
+      <div class="centered-row">
+        <button id="btn-gross">💰 Nominal Earnings (.json)</button>
+      </div>
+    
+      <div class="centered-row">
+        <button id="btn-net">📈 Real Net Earnings (.json)</button>
+      </div>
+
+      <div class="centered-row">
+        <button id="btn-tax">📉 Taxes from Earnings (.json)</button>
+      </div>
+      
+      <div class="centered-row">
+        <button id="btn-balance">🏦 Real Net Balance (.json)</button>
+      </div>
+    
+      <div class="centered-row">
+        <button id="btn-all">📊 Download all (.json)</button>
+      </div>
+    </div>      
+  
+    <div id="donation-column" style="padding-bottom: 5;">
+      <div class="donation-section">
+        <h3>💖 Support this project and more to come!</h3>
+        <p>Thank you for visiting this humble project tool. If that was any useful to you, please may consider leaving a tip:</p>
+    
+        <!-- Buy Me a Coffee -->
+        <p>
+          <a href="https://buymeacoffee.com/marlup" target="_blank">
+            <img src="https://cdn.buymeacoffee.com/buttons/v2/default-pink.png"
+                 alt="Buy Me A Coffee" style="height: 60px; width: 217px;">
+          </a>
+        </p>
+        
+        <div class="horizontal-center" style="margin-top: 15px;">  
+          <!-- PayPal.Me -->
+          <p>
+            <a href="https://paypal.me/TU_USUARIO" target="_blank">
+              <button style="padding: 10px 20px; font-size: 14px; background-color: #0070ba; color: white; border: none; border-radius: 4px;">
+                Donate with PayPal
+              </button>
+            </a>
+          </p>
+        </div>
+    
+        <!-- Bizum -->
+        <div>
+          <div style="margin-top: 15px; align-items: flex-start; flex-wrap: wrap;">
+            <p><strong>📱 Bizum:</strong> Send to number <strong>+34 653 056 236</strong></p>
+            <img src="/static/images/bizum_qr.JPG" alt="QR Bizum" width="150" style="margin-top: 10px;">
+          </div>
+        </div>
+      </div>
+    </div>
+      
+    <footer class="container">
+      &copy; 2025 Wealth Simulator Project</a> ❤️
+      <p>Check the Github repository: <a href="https://github.com/Marlup/wealth-simulator">wealth-simulator</a>  — built by <a href="https://github.com/Marlup">Marlup</p>
+      <div class="disclaimer">
+        ⚠️ This tool is intended for self-guidance and educational purposes only. No financial advice is given.
+      </div>
+    </footer>
+    </main>
+    
+    </div>
+</body>
+</html>
