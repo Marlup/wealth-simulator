@@ -31,14 +31,16 @@ export function simulate() {
   const monthlyInc = params.inc_contribution_rate / MONTHS_IN_YEAR;
 
   let currentBalance = params.principal;
-  let accumContribution = monthlyContribution;
-  let time = 0;
+  let accumTaxedContribution = 0.0;
+  let accumContribution = 0.0;
+  let time = 0.0;
   let onRetirement = false;
   let earningsWindow = [];
 
   const balances = [];
-  const contributions = [];
-  const grossEarnings = [];
+  const nominalContributions = [];
+  const realContributions = [];
+  const nominalEarnings = [];
   const netEarnings = [];
   const taxEarnings = [];
 
@@ -65,7 +67,7 @@ export function simulate() {
           }
         }
 
-        grossEarnings.push(gross);
+        nominalEarnings.push(gross);
         taxEarnings.push(tax);
         netEarnings.push(net - tax);
       }
@@ -75,22 +77,32 @@ export function simulate() {
         monthlyContribution = 0;
       }
 
+      // Monthly contribution and outflow
       const outflow = onRetirement ? params.monthly_retirement_income : 0;
       currentBalance += monthlyContribution - outflow;
 
+      // Apply inflation to balance and nominal contributions
       const balanceInflation = currentBalance * (params.inflation_rate / MONTHS_IN_YEAR);
       currentBalance -= balanceInflation;
 
+      accumContribution += monthlyContribution;
+      accumTaxedContribution += monthlyContribution;
+      const accumContributionInflation = accumContribution * (params.inflation_rate / MONTHS_IN_YEAR);
+      accumTaxedContribution -= accumContributionInflation;
+
+      // Adjust monthly contribution for inflation if not retired
       if (!onRetirement && monthlyInc > 0) {
         monthlyContribution += monthlyContribution * monthlyInc;
       }
 
+      // Store results for this month
       balances.push(currentBalance);
-      accumContribution += monthlyContribution;
-      contributions.push(accumContribution);
+      nominalContributions.push(accumContribution);
+      realContributions.push(accumTaxedContribution);
       time++;
     }
 
+    // After each year, apply tax on accumulated earnings
     if (params.tax !== "" && earningsWindow.length > 0) {
       const sumEarnings = earningsWindow.reduce((a, b) => a + b, 0);
       const windowTax = isNaN(parseFloat(params.tax))
@@ -101,7 +113,7 @@ export function simulate() {
   }
 
   setSimulationResults(params);
-  return { balances, contributions, grossEarnings, netEarnings, taxEarnings };
+  return { balances, nominalContributions, realContributions, nominalEarnings, netEarnings, taxEarnings };
 }
 
 function plot() {
@@ -115,28 +127,6 @@ function plot() {
   const yield_terms = data.netEarnings.map((_, i) => i);
   const monthNames = months.map(i => (i % 12) + 1);  // 1 to 12
 
-  /*
-  Plotly.react("plot_balance", [{
-    x: months,
-    y: data.balances,
-    type: "scatter",
-    mode: "lines",
-    line: { color: "navy" },
-    name: "Balance",
-    customdata: years.map((y, i) => [y, current_years[i], monthNames[i]]),
-    hovertemplate: 
-    "Year: %{customdata[0]} (%{customdata[1]})<br>" +
-    "Month: %{customdata[2]}<br>" +
-    "Balance (€): %{y:.0f}<extra></extra>"
-  }], {
-    title: { text: "Balance Over Time" },
-    xaxis: { title: { text: "Month" }, gridcolor: 'lightgray' },
-    yaxis: { title: { text: "Balance (€)" }, gridcolor: 'lightgray' },
-    plot_bgcolor: "#b0c4de",
-    paper_bgcolor: "#b0c4de",
-    margin: { t: 40 }
-  });
-  */
   Plotly.react("plot_combined", [
     {
       x: months,
@@ -144,28 +134,41 @@ function plot() {
       type: "scatter",
       mode: "lines",
       line: { color: "navy" },
-      name: "Balance",
+      name: "Real Net Balance",
       customdata: years.map((y, i) => [y, current_years[i], monthNames[i]]),
       hovertemplate: 
         "Year: %{customdata[0]} (%{customdata[1]})<br>" +
         "Month: %{customdata[2]}<br>" +
-        "Balance (€): %{y:.0f}<extra></extra>"
+        "Real Net Balance (€): %{y:.0f}<extra></extra>"
     },
     {
       x: months,
-      y: data.contributions,
+      y: data.nominalContributions,
       type: "scatter",
       mode: "lines",
-      line: { color: "darkgreen" },
-      name: "Contributions",
+      line: { color: "darkred" },
+      name: "Nominal Contributions",
       customdata: years.map((y, i) => [y, current_years[i], monthNames[i]]),
       hovertemplate: 
         "Year: %{customdata[0]} (%{customdata[1]})<br>" +
         "Month: %{customdata[2]}<br>" +
-        "Contribution (€): %{y:.0f}<extra></extra>"
+        "Nominal Contribution (€): %{y:.0f}<extra></extra>"
+    },
+    {
+      x: months,
+      y: data.realContributions,
+      type: "scatter",
+      mode: "lines",
+      line: { color: "darkgreen" },
+      name: "Real Contributions",
+      customdata: years.map((y, i) => [y, current_years[i], monthNames[i]]),
+      hovertemplate: 
+        "Year: %{customdata[0]} (%{customdata[1]})<br>" +
+        "Month: %{customdata[2]}<br>" +
+        "Real Contribution (€): %{y:.0f}<extra></extra>"
     }
   ], {
-    title: { text: "Balance and Contributions Over Time" },
+    title: { text: "Real Net Balance and Contributions Over Time" },
     xaxis: { title: { text: "Month" }, gridcolor: 'lightgray' },
     yaxis: { title: { text: "Amount (€)" }, gridcolor: 'lightgray' },
     plot_bgcolor: "#b0c4de",
@@ -173,18 +176,29 @@ function plot() {
     margin: { t: 40 }
   });
 
-  Plotly.react("plot_earnings", [{
-    x: yield_terms,
-    y: data.netEarnings,
-    type: "scatter",
-    mode: "lines",
-    line: { color: "green" },
-    name: "Net Earnings",
-    hovertemplate: "Term: %{x}<br>Earning (€): %{y:.1f}<extra></extra>"
-  }], {
+  Plotly.react("plot_earnings", [
+    {
+      x: yield_terms,
+      y: data.netEarnings,
+      type: "scatter",
+      mode: "lines",
+      line: { color: "navy" },
+      name: "Real Net Earnings",
+      hovertemplate: "Term: %{x}<br>Real Net Earnings (€): %{y:.1f}<extra></extra>"
+    },
+    {
+      x: yield_terms,
+      y: data.nominalEarnings,
+      type: "scatter",
+      mode: "lines",
+      line: { color: "darkred" },
+      name: "Nominal Earnings",
+      hovertemplate: "Term: %{x}<br>Nominal Earnings (€): %{y:.1f}<extra></extra>"
+  }
+], {
     title: { text: "Earnings Over Time" },
     xaxis: { title: { text: `Interests frequency (every ${params.yield_frequency} months)` }, gridcolor: 'lightgray' },
-    yaxis: { title: { text: "Earning (€)" }, gridcolor: 'lightgray' },
+    yaxis: { title: { text: "Earnings (€)" }, gridcolor: 'lightgray' },
     plot_bgcolor: "#d8eecf",
     paper_bgcolor: "#d8eecf",
     margin: { t: 40 }

@@ -18,7 +18,7 @@ function downloadData(type) {
             generated_at: timestamp,
             parameters: params,
             data: {
-                grossEarnings: sim_results.grossEarnings ?? [],
+                nominalEarnings: sim_results.nominalEarnings ?? [],
                 taxEarnings: sim_results.taxEarnings ?? [],
                 netEarnings: sim_results.netEarnings ?? [],
                 balances: sim_results.balances ?? []
@@ -26,7 +26,7 @@ function downloadData(type) {
         };
     } else {
         const dataMap = {
-            gross: { key: 'grossEarnings', label: 'gross_earning.json' },
+            nominal: { key: 'nominalEarnings', label: 'nominal_earning.json' },
             tax: { key: 'taxEarnings', label: 'tax_earning.json' },
             net: { key: 'netEarnings', label: 'net_earning.json' },
             balance: { key: 'balances', label: 'balance.json' }
@@ -60,7 +60,7 @@ function downloadData(type) {
 }
 
 // Attach event listeners to all buttons
-document.getElementById("btn-gross")?.addEventListener("click", () => downloadData("gross"));
+document.getElementById("btn-nominal")?.addEventListener("click", () => downloadData("nominal"));
 document.getElementById("btn-tax")?.addEventListener("click", () => downloadData("tax"));
 document.getElementById("btn-net")?.addEventListener("click", () => downloadData("net"));
 document.getElementById("btn-balance")?.addEventListener("click", () => downloadData("balance"));
