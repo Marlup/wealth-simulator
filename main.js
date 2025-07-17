@@ -31,11 +31,13 @@ export function simulate() {
   const monthlyInc = params.inc_contribution_rate / MONTHS_IN_YEAR;
 
   let currentBalance = params.principal;
+  let accumContribution = monthlyContribution;
   let time = 0;
   let onRetirement = false;
   let earningsWindow = [];
 
   const balances = [];
+  const contributions = [];
   const grossEarnings = [];
   const netEarnings = [];
   const taxEarnings = [];
@@ -84,6 +86,8 @@ export function simulate() {
       }
 
       balances.push(currentBalance);
+      accumContribution += monthlyContribution;
+      contributions.push(accumContribution);
       time++;
     }
 
@@ -97,20 +101,21 @@ export function simulate() {
   }
 
   setSimulationResults(params);
-  return { balances, grossEarnings, netEarnings, taxEarnings };
+  return { balances, contributions, grossEarnings, netEarnings, taxEarnings };
 }
 
 function plot() {
   const data = simulate();
   const params = simulationParams;
 
+  // Update UI with current parameters
   const months = data.balances.map((_, i) => i);
   const years = months.map(i => Math.floor(i / 12));
   const current_years = months.map(i => CURRENT_YEAR + Math.floor(i / 12));
   const yield_terms = data.netEarnings.map((_, i) => i);
   const monthNames = months.map(i => (i % 12) + 1);  // 1 to 12
 
-
+  /*
   Plotly.react("plot_balance", [{
     x: months,
     y: data.balances,
@@ -131,6 +136,42 @@ function plot() {
     paper_bgcolor: "#b0c4de",
     margin: { t: 40 }
   });
+  */
+  Plotly.react("plot_combined", [
+    {
+      x: months,
+      y: data.balances,
+      type: "scatter",
+      mode: "lines",
+      line: { color: "navy" },
+      name: "Balance",
+      customdata: years.map((y, i) => [y, current_years[i], monthNames[i]]),
+      hovertemplate: 
+        "Year: %{customdata[0]} (%{customdata[1]})<br>" +
+        "Month: %{customdata[2]}<br>" +
+        "Balance (€): %{y:.0f}<extra></extra>"
+    },
+    {
+      x: months,
+      y: data.contributions,
+      type: "scatter",
+      mode: "lines",
+      line: { color: "darkgreen" },
+      name: "Contributions",
+      customdata: years.map((y, i) => [y, current_years[i], monthNames[i]]),
+      hovertemplate: 
+        "Year: %{customdata[0]} (%{customdata[1]})<br>" +
+        "Month: %{customdata[2]}<br>" +
+        "Contribution (€): %{y:.0f}<extra></extra>"
+    }
+  ], {
+    title: { text: "Balance and Contributions Over Time" },
+    xaxis: { title: { text: "Month" }, gridcolor: 'lightgray' },
+    yaxis: { title: { text: "Amount (€)" }, gridcolor: 'lightgray' },
+    plot_bgcolor: "#b0c4de",
+    paper_bgcolor: "#b0c4de",
+    margin: { t: 40 }
+  });
 
   Plotly.react("plot_earnings", [{
     x: yield_terms,
@@ -142,7 +183,7 @@ function plot() {
     hovertemplate: "Term: %{x}<br>Earning (€): %{y:.1f}<extra></extra>"
   }], {
     title: { text: "Earnings Over Time" },
-    xaxis: { title: { text: `Yield frequency (${params.yield_frequency} months)` }, gridcolor: 'lightgray' },
+    xaxis: { title: { text: `Interests frequency (every ${params.yield_frequency} months)` }, gridcolor: 'lightgray' },
     yaxis: { title: { text: "Earning (€)" }, gridcolor: 'lightgray' },
     plot_bgcolor: "#d8eecf",
     paper_bgcolor: "#d8eecf",
